@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, Check, ChevronLeft, ChevronRight, Clipboard, LogIn, LogOut, Mail, Menu, MessageCircle, Moon, Plus, Send, Share2, ShieldCheck, Star, Sun, X } from 'lucide-react';
+import { ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, Check, ChevronLeft, ChevronRight, Clipboard, LogIn, LogOut, Mail, Menu, MessageCircle, Moon, Plus, Send, Share2, ShieldCheck, Star, Sun, X } from 'lucide-react';
 import { Link, Route, Switch, useLocation } from 'wouter';
 import { captureReferralCode, createReferralInvite, loadAdminData, recordReferralShare, saveAdminReply, saveChatbotInquiry, saveSubmission, saveTestimonialVerification, supabase, trackAnalyticsEvent } from './supabase';
 import { vehicleMedia } from './vehicleMedia';
@@ -111,6 +111,27 @@ const vehicles = [
   },
 ];
 
+function inquiryMailto(vehicle, interest = 'vehicle') {
+  const subject = vehicle
+    ? `Tesla ${vehicle.name} ${interest} inquiry - ${vehicle.price}`
+    : 'Tesla vehicle giveaway inquiry';
+  const body = [
+    'Hello Joe Ward,',
+    '',
+    vehicle
+      ? `I am interested in the ${vehicle.name} (${vehicle.price}).`
+      : 'I am interested in learning more about the Tesla vehicle giveaway.',
+    interest === 'giveaway' ? 'Please share more information about the vehicle giveaway.' : '',
+    '',
+    'Please follow up with more information.',
+    '',
+    'Name:',
+    'Preferred contact details:',
+  ].filter(Boolean).join('\n');
+
+  return `mailto:${contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+}
+
 const regions = [
   { name: 'Pacific Northwest', detail: 'Ideal for road trips and cool-weather commuting.', stat: 'Fast-charge access' },
   { name: 'Sun Belt', detail: 'Designed for year-round driving and weekend escapes.', stat: 'High-efficiency living' },
@@ -190,7 +211,8 @@ function VehicleGallery({ vehicle, compact = false }) {
 function Header({ theme, onToggleTheme }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [location] = useLocation();
-  const isModel = location.startsWith('/models/');
+  const vehicle = vehicles.find((item) => location.startsWith(`/models/${item.slug}`));
+  const isModel = Boolean(vehicle);
 
   return (
     <header className="site-header">
@@ -202,7 +224,7 @@ function Header({ theme, onToggleTheme }) {
         <a href={isModel ? '/#giveaway' : '#giveaway'} onClick={() => setMenuOpen(false)}>Giveaway</a>
         <Link href="/admin" onClick={() => setMenuOpen(false)}>Admin</Link>
       </nav>
-      <a className="header-cta" href={isModel ? '/#giveaway' : '#giveaway'}>Enter giveaway <ArrowUpRight size={15} /></a>
+      <a className="header-cta" href={inquiryMailto(vehicle, 'giveaway')}>Enter giveaway <ArrowUpRight size={15} /></a>
       <button className="theme-toggle" type="button" onClick={onToggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
         {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
       </button>
@@ -468,9 +490,9 @@ function Lineup() {
                   <h3>{vehicle.name}</h3>
                   <p className="giveaway-vehicle-note">{vehicle.note}</p>
                 </div>
-                <Link className="giveaway-entry-link" href={`/models/${vehicle.slug}#giveaway`} aria-label={`Explore ${vehicle.name} and enter the giveaway`}>
-                  Explore &amp; enter <ArrowUpRight size={16} />
-                </Link>
+                <a className="giveaway-entry-link" href={inquiryMailto(vehicle, 'giveaway')} aria-label={`Email an inquiry about the ${vehicle.name} giveaway`}>
+                  Inquire about {vehicle.name} <ArrowUpRight size={16} />
+                </a>
               </div>
             </article>
           ))}
@@ -481,29 +503,8 @@ function Lineup() {
 }
 
 function InquiryForm({ vehicle }) {
-  const [status, setStatus] = useState('idle');
   const [selectedModel, setSelectedModel] = useState(vehicle.name);
-
-  async function submitInquiry(event) {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    setStatus('submitting');
-
-    try {
-      await saveSubmission({
-        type: 'giveaway',
-        name: formData.get('name'),
-        email: formData.get('email'),
-        vehicleModel: formData.get('model'),
-        message: formData.get('message') || '',
-        consented: formData.get('consent') === 'on',
-        referralOptIn: formData.get('referral-opt-in') === 'on',
-      });
-      setStatus('success');
-    } catch {
-      setStatus('error');
-    }
-  }
+  const selectedVehicle = vehicles.find((item) => item.name === selectedModel) || vehicle;
 
   return (
     <section className="inquiry-section" id="giveaway">
@@ -514,28 +515,15 @@ function InquiryForm({ vehicle }) {
         <span className="fine-print">*Projected figures for Roadster. Specifications and availability vary by model. This site is an independent vehicle guide and is not affiliated with Tesla, Inc.</span>
       </div>
       <div className="form-panel">
-        {status === 'success' ? (
-          <div className="success-message" role="status"><span className="success-icon"><Check size={20} /></span><p className="eyebrow">Inquiry received</p><h3>Thanks for reaching out.</h3><p>Your {selectedModel} inquiry has been securely submitted. We’ll be in touch.</p><button className="text-button" onClick={() => setStatus('idle')}>Prepare another inquiry <ArrowRight size={15} /></button></div>
-        ) : (
-          <form onSubmit={submitInquiry}>
-            <p className="form-kicker">01 — Tell us about you</p>
-            {status === 'error' && <p className="form-error" role="alert">We couldn’t submit your inquiry. Try again or email us at <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.</p>}
-            <label htmlFor="full-name">Full name</label>
-            <input id="full-name" name="name" autoComplete="name" placeholder="Your name" required />
-            <label htmlFor="email">Email address</label>
-            <input id="email" name="email" type="email" autoComplete="email" placeholder="you@example.com" required />
-            <label htmlFor="model">Model of interest</label>
-            <select id="model" name="model" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
-              {vehicles.map((item) => <option key={item.slug} value={item.name}>{item.name}</option>)}
-            </select>
-            <label htmlFor="giveaway-message">Message <span>(optional)</span></label>
-            <textarea id="giveaway-message" name="message" rows="3" maxLength="5000" placeholder="Anything you’d like us to know?" />
-            <label className="consent"><input type="checkbox" name="consent" required /><span>I agree to be contacted about this giveaway inquiry.</span></label>
-            <label className="consent referral-consent"><input type="checkbox" name="referral-opt-in" /><span>Use the referral link I followed for attribution.</span></label>
-            <button type="submit" className="submit-button" disabled={status === 'submitting'}>{status === 'submitting' ? 'Sending…' : 'Send inquiry'} <ArrowUpRight size={17} /></button>
-            <p className="privacy-note">Your details are used only to follow up on this inquiry.</p>
-          </form>
-        )}
+        <p className="form-kicker">01 — Choose a vehicle</p>
+        <label htmlFor="giveaway-model">Model of interest</label>
+        <select id="giveaway-model" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
+          {vehicles.map((item) => <option key={item.slug} value={item.name}>{item.name}</option>)}
+        </select>
+        <a className="submit-button" href={inquiryMailto(selectedVehicle, 'giveaway')}>
+          Email giveaway inquiry <ArrowUpRight size={17} />
+        </a>
+        <p className="privacy-note">Your email app will open with the vehicle, starting price, and giveaway interest included.</p>
       </div>
     </section>
   );
@@ -556,7 +544,7 @@ function ModelPage({ vehicle }) {
           <p className="eyebrow">{vehicle.category} <span className="status-dot" /> {vehicle.status}</p>
           <h1>{vehicle.name}</h1>
           <p className="model-tagline">{vehicle.note}</p>
-          <a className="light-button" href="#giveaway">Inquire about the giveaway <ArrowDown size={16} /></a>
+          <a className="light-button" href={inquiryMailto(vehicle, 'giveaway')}>Inquire about {vehicle.name} <ArrowUpRight size={16} /></a>
         </div>
         <div className="hero-caption"><span>{String(index + 1).padStart(2, '0')} / 07</span><span>{vehicle.price}</span></div>
       </section>
