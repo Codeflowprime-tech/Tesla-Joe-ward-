@@ -6,6 +6,16 @@ import { vehicleMedia } from './vehicleMedia';
 
 const contactEmail = 'teslajoeward@gmail.com';
 const teslaLogoUrl = 'https://upload.wikimedia.org/wikipedia/commons/6/62/Tesla_Motors_Logo.svg';
+const adminRequestTimeoutMs = 15000;
+
+function withTimeout(promise) {
+  let timeoutId;
+  const timeout = new Promise((_, reject) => {
+    timeoutId = window.setTimeout(() => reject(new Error('Admin request timed out.')), adminRequestTimeoutMs);
+  });
+
+  return Promise.race([promise, timeout]).finally(() => window.clearTimeout(timeoutId));
+}
 
 const vehicles = [
   {
@@ -231,26 +241,16 @@ function RegionCard({ region }) {
 }
 
 function ProfileSection() {
-  const [portraitLoaded, setPortraitLoaded] = useState(false);
-  const [portraitFailed, setPortraitFailed] = useState(false);
-
   return (
     <section className="profile-section section-wrap" id="profile" aria-labelledby="profile-title">
       <div className="profile-feature">
         <figure className="profile-portrait" aria-label="Portrait of Joe Ward">
-          {!portraitLoaded && (
-            <span className="profile-portrait-fallback" role="status">
-              {portraitFailed ? 'Portrait unavailable' : 'JW'}
-            </span>
-          )}
           <img
-            src="/joe-ward.jpg"
+            src="https://i.imgur.com/we5YPvt.png"
             alt="Portrait of Joe Ward"
             fetchPriority="high"
-            onLoad={() => setPortraitLoaded(true)}
-            onError={() => setPortraitFailed(true)}
           />
-          <figcaption>Joe Ward · Independent EV analyst &amp; consultant</figcaption>
+          <figcaption>Portrait of Joe Ward · Independent EV analyst &amp; consultant</figcaption>
         </figure>
         <div className="profile-copy">
           <p className="eyebrow red">Executive profile · Electric mobility</p>
@@ -759,25 +759,33 @@ function AdminPanel() {
         setStatus('unconfigured');
         return;
       }
-      const { data: sessionData } = await supabase.auth.getSession();
-      const currentUser = sessionData.session?.user;
-      if (!active) return;
-      if (currentUser?.app_metadata?.role === 'admin') {
-        setUser(currentUser);
-        try {
-          const nextData = await loadAdminData();
-          if (active) {
-            setData(nextData);
-            setStatus('ready');
+      try {
+        const { data: sessionData, error: sessionError } = await withTimeout(supabase.auth.getSession());
+        if (sessionError) throw sessionError;
+        const currentUser = sessionData.session?.user;
+        if (!active) return;
+        if (currentUser?.app_metadata?.role === 'admin') {
+          setUser(currentUser);
+          try {
+            const nextData = await withTimeout(loadAdminData());
+            if (active) {
+              setData(nextData);
+              setStatus('ready');
+            }
+          } catch {
+            if (active) {
+              setError('Could not load admin data. Confirm the database migration and admin role are applied.');
+              setStatus('error');
+            }
           }
-        } catch {
-          if (active) {
-            setError('Could not load admin data. Confirm the database migration and admin role are applied.');
-            setStatus('error');
-          }
+        } else {
+          setStatus('ready');
         }
-      } else {
-        setStatus('ready');
+      } catch {
+        if (active) {
+          setError('Could not restore your admin session. Try signing in again.');
+          setStatus('error');
+        }
       }
     }
     restoreSession();
