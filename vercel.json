@@ -1,3 +1,9 @@
 {
-  "installCommand": "pnpm install --frozen-lockfile --ignore-scripts --config.strict-dep-builds=false"
+  "installCommand": "pnpm install --frozen-lockfile --ignore-scripts --config.strict-dep-builds=false",
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }

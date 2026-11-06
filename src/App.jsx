@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUpRight, BadgeCheck, Check, ChevronLeft, ChevronRight, Clipboard, LogIn, LogOut, Mail, Menu, MessageCircle, Moon, Plus, Send, Share2, ShieldCheck, Star, Sun, X } from 'lucide-react';
 import { Link, Route, Switch, useLocation } from 'wouter';
 import { captureReferralCode, createReferralInvite, loadAdminData, recordReferralShare, saveAdminReply, saveChatbotInquiry, saveSubmission, saveTestimonialVerification, supabase, trackAnalyticsEvent } from './supabase';
@@ -117,27 +117,58 @@ function VehicleImage({ vehicle, className = '' }) {
   );
 }
 
-function VehicleGallery({ vehicle }) {
+function VehicleGallery({ vehicle, compact = false }) {
   const images = vehicleMedia[vehicle.slug] || [];
   const [activeIndex, setActiveIndex] = useState(0);
+  const touchStart = useRef(null);
+  const thumbnailRefs = useRef([]);
   const activeImage = images[activeIndex];
+
+  useEffect(() => {
+    if (compact) return;
+    thumbnailRefs.current[activeIndex]?.scrollIntoView?.({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+  }, [activeIndex, compact]);
+
+  if (!activeImage) {
+    return <div className="vehicle-gallery gallery-empty" role="status">No photos available for this vehicle.</div>;
+  }
 
   function moveGallery(direction) {
     setActiveIndex((current) => (current + direction + images.length) % images.length);
   }
 
+  function handleTouchStart(event) {
+    touchStart.current = event.touches[0]?.clientX ?? null;
+  }
+
+  function handleTouchEnd(event) {
+    if (touchStart.current === null) return;
+    const endX = event.changedTouches[0]?.clientX;
+    if (endX === undefined) return;
+    const distance = endX - touchStart.current;
+    touchStart.current = null;
+    if (Math.abs(distance) < 40) return;
+    moveGallery(distance < 0 ? 1 : -1);
+  }
+
+  function handleKeyDown(event) {
+    if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+    event.preventDefault();
+    moveGallery(event.key === 'ArrowLeft' ? -1 : 1);
+  }
+
   return (
-    <div className="vehicle-gallery">
-      <img className="gallery-image" src={activeImage.src} alt={activeImage.alt} fetchPriority="high" />
+    <div className={`vehicle-gallery${compact ? ' compact-vehicle-gallery' : ''}`} role="group" aria-label={`${vehicle.name} photo gallery`} tabIndex={0} onKeyDown={handleKeyDown}>
+      <img className="gallery-image" src={activeImage.src} alt={activeImage.alt} loading={compact ? 'lazy' : undefined} fetchPriority={compact ? 'auto' : 'high'} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd} />
       <div className="gallery-controls">
-        <button type="button" aria-label="Previous photo" onClick={() => moveGallery(-1)}><ChevronLeft size={18} /></button>
-        <span>{String(activeIndex + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}</span>
-        <button type="button" aria-label="Next photo" onClick={() => moveGallery(1)}><ChevronRight size={18} /></button>
+        <button type="button" aria-label="Previous photo" onClick={() => moveGallery(-1)} disabled={images.length < 2}><ChevronLeft size={18} /></button>
+        <span aria-live="polite">{String(activeIndex + 1).padStart(2, '0')} / {String(images.length).padStart(2, '0')}</span>
+        <button type="button" aria-label="Next photo" onClick={() => moveGallery(1)} disabled={images.length < 2}><ChevronRight size={18} /></button>
       </div>
       <a className="gallery-credit" href={activeImage.source} target="_blank" rel="noreferrer">{activeImage.credit} · Source &amp; license</a>
-      <div className="gallery-thumbnails" aria-label={`${vehicle.name} photo gallery`}>
+      <div className="gallery-thumbnails" aria-label="Choose a photo">
         {images.map((image, index) => (
-          <button type="button" key={image.src} className={index === activeIndex ? 'is-active' : ''} aria-label={`Show photo ${index + 1}`} onClick={() => setActiveIndex(index)}>
+          <button type="button" key={image.src} ref={(element) => { thumbnailRefs.current[index] = element; }} className={index === activeIndex ? 'is-active' : ''} aria-label={`Show photo ${index + 1}`} aria-pressed={index === activeIndex} onClick={() => setActiveIndex(index)}>
             <img src={image.src} alt="" loading="lazy" />
           </button>
         ))}
@@ -420,9 +451,30 @@ function Lineup() {
         </div>
       </section>
 
-      <section className="home-giveaway section-wrap" id="giveaway">
-        <div><p className="eyebrow red">A little extra charge</p><h2>Your next drive<br />could be <em>on us.</em></h2></div>
-        <div className="giveaway-copy"><p>Send an inquiry to learn more about the vehicle giveaway. Choose the model you’d love to drive and our team will be in touch.</p><ArrowLink href="/models/model-y#giveaway">Explore a model <ArrowRight size={16} /></ArrowLink></div>
+      <section className="home-giveaway section-wrap" id="giveaway" aria-labelledby="giveaway-title">
+        <div className="giveaway-heading">
+          <div><p className="eyebrow red">A little extra charge</p><h2 id="giveaway-title">Your next drive<br />could be <em>on us.</em></h2></div>
+          <p className="giveaway-copy">Browse every vehicle entry and its available photos. Choose a model to learn more and send a giveaway inquiry.</p>
+        </div>
+        <div className="giveaway-vehicle-grid">
+          {vehicles.map((vehicle) => (
+            <article className="giveaway-vehicle-card" key={vehicle.slug}>
+              <div className="giveaway-gallery-frame">
+                <VehicleGallery vehicle={vehicle} compact />
+              </div>
+              <div className="giveaway-vehicle-info">
+                <div>
+                  <p className="eyebrow red">{vehicle.category}</p>
+                  <h3>{vehicle.name}</h3>
+                  <p className="giveaway-vehicle-note">{vehicle.note}</p>
+                </div>
+                <Link className="giveaway-entry-link" href={`/models/${vehicle.slug}#giveaway`} aria-label={`Explore ${vehicle.name} and enter the giveaway`}>
+                  Explore &amp; enter <ArrowUpRight size={16} />
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
       </section>
     </main>
   );
@@ -564,7 +616,7 @@ function ComparePage() {
         {selectedSlugs.length < 3 && <button className="add-vehicle" type="button" onClick={() => setSelectedSlugs((current) => [...current, vehicles.find((vehicle) => !current.includes(vehicle.slug)).slug])}><Plus size={16} /> Add vehicle</button>}
         {selectedSlugs.length > 2 && <button className="remove-vehicle" type="button" onClick={() => setSelectedSlugs((current) => current.slice(0, -1))}>Remove third</button>}
       </div>
-      <div className="comparison-table" role="table" aria-label="Vehicle specifications comparison">
+      <div className={`comparison-table columns-${selectedVehicles.length}`} role="table" aria-label="Vehicle specifications comparison">
         <div className="comparison-header" role="row">
           <span role="columnheader">Specifications</span>
           {selectedVehicles.map((vehicle) => <Link role="columnheader" href={`/models/${vehicle.slug}`} key={vehicle.slug}>{vehicle.name}<ArrowUpRight size={15} /></Link>)}
