@@ -7,6 +7,7 @@ import { vehicleMedia } from './vehicleMedia';
 const contactEmail = 'teslajoeward@gmail.com';
 const teslaLogoUrl = 'https://upload.wikimedia.org/wikipedia/commons/6/62/Tesla_Motors_Logo.svg';
 const adminRequestTimeoutMs = 15000;
+const propertyAreas = ['Cyprus', 'United States', 'United Kingdom'];
 
 function withTimeout(promise) {
   let timeoutId;
@@ -111,31 +112,37 @@ const vehicles = [
   },
 ];
 
-function inquiryMailto(vehicle, interest = 'vehicle') {
-  const subject = vehicle
-    ? `Tesla ${vehicle.name} ${interest} inquiry - ${vehicle.price}`
-    : 'Tesla vehicle giveaway inquiry';
-  const body = [
-    'Hello Joe Ward,',
-    '',
-    vehicle
-      ? `I am interested in the ${vehicle.name} (${vehicle.price}).`
-      : 'I am interested in learning more about the Tesla vehicle giveaway.',
-    interest === 'giveaway' ? 'Please share more information about the vehicle giveaway.' : '',
-    '',
-    'Please follow up with more information.',
-    '',
-    'Name:',
-    'Preferred contact details:',
-  ].filter(Boolean).join('\n');
-
-  return `mailto:${contactEmail}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-}
-
 const regions = [
-  { name: 'Pacific Northwest', detail: 'Ideal for road trips and cool-weather commuting.', stat: 'Fast-charge access' },
-  { name: 'Sun Belt', detail: 'Designed for year-round driving and weekend escapes.', stat: 'High-efficiency living' },
-  { name: 'Midwest', detail: 'Built for long-haul comfort and practical everyday range.', stat: 'Daily utility' },
+  {
+    name: 'Cyprus',
+    propertyType: 'Coastal home inspiration',
+    detail: 'An illustrative island-home showcase for exploring properties in Cyprus.',
+    images: [
+      { src: 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1200&q=85', alt: 'Contemporary home exterior', caption: 'Exterior' },
+      { src: 'https://images.unsplash.com/photo-1600210492486-724fe5c67fb0?auto=format&fit=crop&w=900&q=80', alt: 'Bright open-plan living room', caption: 'Living room' },
+      { src: 'https://images.unsplash.com/photo-1600566753086-00f18fb6b3ea?auto=format&fit=crop&w=900&q=80', alt: 'Modern home interior detail', caption: 'Interior' },
+    ],
+  },
+  {
+    name: 'United States',
+    propertyType: 'Modern home inspiration',
+    detail: 'An illustrative modern-home showcase for exploring properties in the United States.',
+    images: [
+      { src: 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=85', alt: 'Modern home exterior', caption: 'Exterior' },
+      { src: 'https://images.unsplash.com/photo-1600607687939-ce8a6c25118c?auto=format&fit=crop&w=900&q=80', alt: 'Contemporary open-plan living space', caption: 'Living room' },
+      { src: 'https://images.unsplash.com/photo-1600566753190-17f0baa2a6c3?auto=format&fit=crop&w=900&q=80', alt: 'Bright modern interior', caption: 'Interior' },
+    ],
+  },
+  {
+    name: 'United Kingdom',
+    propertyType: 'Country home inspiration',
+    detail: 'An illustrative country-home showcase for exploring properties in the United Kingdom.',
+    images: [
+      { src: 'https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=1200&q=85', alt: 'Traditional-style home exterior', caption: 'Exterior' },
+      { src: 'https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?auto=format&fit=crop&w=900&q=80', alt: 'Warm, light-filled living room', caption: 'Living room' },
+      { src: 'https://images.unsplash.com/photo-1600566752355-35792bedcfea?auto=format&fit=crop&w=900&q=80', alt: 'Refined contemporary home interior', caption: 'Interior' },
+    ],
+  },
 ];
 
 function VehicleImage({ vehicle, className = '' }) {
@@ -224,7 +231,7 @@ function Header({ theme, onToggleTheme }) {
         <a href={isModel ? '/#giveaway' : '#giveaway'} onClick={() => setMenuOpen(false)}>Giveaway</a>
         <Link href="/admin" onClick={() => setMenuOpen(false)}>Admin</Link>
       </nav>
-      <a className="header-cta" href={inquiryMailto(vehicle, 'giveaway')}>Enter giveaway <ArrowUpRight size={15} /></a>
+      <a className="header-cta" href={isModel ? '#giveaway' : '/#giveaway'}>Enter giveaway <ArrowUpRight size={15} /></a>
       <button className="theme-toggle" type="button" onClick={onToggleTheme} aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`} title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}>
         {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
       </button>
@@ -237,6 +244,20 @@ function Header({ theme, onToggleTheme }) {
 
 function ArrowLink({ href, children }) {
   return <Link href={href} className="arrow-link">{children}<ArrowRight size={16} /></Link>;
+}
+
+function PropertyAreaOptions() {
+  return (
+    <>
+      <option value="">Choose an area</option>
+      {propertyAreas.map((area) => <option value={area} key={area}>{area}</option>)}
+    </>
+  );
+}
+
+function getRequestedPropertyArea() {
+  const requestedArea = new URLSearchParams(window.location.search).get('area');
+  return propertyAreas.includes(requestedArea) ? requestedArea : '';
 }
 
 function ModelCard({ vehicle, index }) {
@@ -254,10 +275,24 @@ function ModelCard({ vehicle, index }) {
 function RegionCard({ region }) {
   return (
     <article className="region-card">
-      <p className="eyebrow red">Regional fit</p>
-      <h3>{region.name}</h3>
-      <p>{region.detail}</p>
-      <span>{region.stat}</span>
+      <div className="region-card-gallery" aria-label={`${region.name} property inspiration photos`}>
+        {region.images.map((image, index) => (
+          <figure className={`region-card-photo region-card-photo-${index + 1}`} key={image.src}>
+            <img src={image.src} alt={image.alt} loading="lazy" />
+            <figcaption>{image.caption}</figcaption>
+          </figure>
+        ))}
+      </div>
+      <div className="region-card-copy">
+        <p className="eyebrow red">Property showcase</p>
+        <p className="region-card-type">{region.propertyType}</p>
+        <h3>{region.name}</h3>
+        <p>{region.detail}</p>
+        <nav className="region-card-links" aria-label={`${region.name} inquiry links`}>
+          <a href={`/?area=${encodeURIComponent(region.name)}#giveaway`}>Giveaway inquiry <ArrowUpRight size={14} /></a>
+          <a href={`/?area=${encodeURIComponent(region.name)}#contact`}>Contact us <ArrowUpRight size={14} /></a>
+        </nav>
+      </div>
     </article>
   );
 }
@@ -450,10 +485,11 @@ function Lineup() {
       <section className="regional-section section-wrap" aria-labelledby="regional-title">
         <div className="section-heading narrow">
           <div>
-            <p className="eyebrow red">Drive anywhere</p>
-            <h2 id="regional-title">Built for<br /><em>your region.</em></h2>
+            <p className="eyebrow red">Property locations</p>
+            <h2 id="regional-title">Explore<br /><em>your area.</em></h2>
           </div>
         </div>
+        <p className="property-disclaimer">Illustrative property imagery, not live listings.</p>
         <div className="region-grid">
           {regions.map((region) => <RegionCard region={region} key={region.name} />)}
         </div>
@@ -473,7 +509,7 @@ function Lineup() {
         </div>
       </section>
 
-      <section className="home-giveaway section-wrap" id="giveaway" aria-labelledby="giveaway-title">
+      <section className="home-giveaway section-wrap" id="giveaway-vehicles" aria-labelledby="giveaway-title">
         <div className="giveaway-heading">
           <div><p className="eyebrow red">A little extra charge</p><h2 id="giveaway-title">Your next drive<br />could be <em>on us.</em></h2></div>
           <p className="giveaway-copy">Browse every vehicle entry and its available photos. Choose a model to learn more and send a giveaway inquiry.</p>
@@ -490,40 +526,80 @@ function Lineup() {
                   <h3>{vehicle.name}</h3>
                   <p className="giveaway-vehicle-note">{vehicle.note}</p>
                 </div>
-                <a className="giveaway-entry-link" href={inquiryMailto(vehicle, 'giveaway')} aria-label={`Email an inquiry about the ${vehicle.name} giveaway`}>
-                  Inquire about {vehicle.name} <ArrowUpRight size={16} />
+                <a className="giveaway-entry-link" href={`/models/${vehicle.slug}#giveaway`} aria-label={`Enter the ${vehicle.name} giveaway`}>
+                  Enter with {vehicle.name} <ArrowUpRight size={16} />
                 </a>
               </div>
             </article>
           ))}
         </div>
       </section>
+      <InquiryForm vehicle={vehicles[0]} />
     </main>
   );
 }
 
 function InquiryForm({ vehicle }) {
   const [selectedModel, setSelectedModel] = useState(vehicle.name);
+  const [status, setStatus] = useState('idle');
   const selectedVehicle = vehicles.find((item) => item.name === selectedModel) || vehicle;
+
+  async function submitGiveaway(event) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    setStatus('submitting');
+
+    try {
+      await saveSubmission({
+        type: 'giveaway',
+        name: formData.get('giveaway-name'),
+        email: formData.get('giveaway-email'),
+        vehicleModel: selectedModel,
+        propertyArea: formData.get('giveaway-area'),
+        message: 'Giveaway inquiry',
+        consented: formData.get('giveaway-consent') === 'on',
+      });
+      setStatus('success');
+    } catch (error) {
+      console.error('Unable to save giveaway submission to Supabase.', error);
+      setStatus('error');
+    }
+  }
 
   return (
     <section className="inquiry-section" id="giveaway">
       <div className="inquiry-intro">
         <p className="eyebrow">The giveaway</p>
         <h2>A new kind<br />of <em>good luck.</em></h2>
-        <p>Curious about the giveaway? Tell us a little about yourself and the vehicle you have in mind.</p>
+        <p>Curious about the giveaway? Tell us a little about yourself, where you’re based, and the vehicle you have in mind.</p>
         <span className="fine-print">*Projected figures for Roadster. Specifications and availability vary by model. This site is an independent vehicle guide and is not affiliated with Tesla, Inc.</span>
       </div>
       <div className="form-panel">
-        <p className="form-kicker">01 — Choose a vehicle</p>
-        <label htmlFor="giveaway-model">Model of interest</label>
-        <select id="giveaway-model" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
-          {vehicles.map((item) => <option key={item.slug} value={item.name}>{item.name}</option>)}
-        </select>
-        <a className="submit-button" href={inquiryMailto(selectedVehicle, 'giveaway')}>
-          Email giveaway inquiry <ArrowUpRight size={17} />
-        </a>
-        <p className="privacy-note">Your email app will open with the vehicle, starting price, and giveaway interest included.</p>
+        {status === 'success' ? (
+          <div className="contact-form-result" role="status">
+            <Check size={18} />
+            <p>Your giveaway entry has been received. We’ll be in touch.</p>
+            <button className="text-button" type="button" onClick={() => setStatus('idle')}>Send another entry <ArrowRight size={15} /></button>
+          </div>
+        ) : (
+          <form onSubmit={submitGiveaway}>
+            <p className="form-kicker">Giveaway entry</p>
+            {status === 'error' && <p className="form-error" role="alert">We couldn’t save your entry. Please try again or email us at <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.</p>}
+            <label htmlFor="giveaway-name">Full name</label>
+            <input id="giveaway-name" name="giveaway-name" autoComplete="name" maxLength="120" required />
+            <label htmlFor="giveaway-email">Email address</label>
+            <input id="giveaway-email" name="giveaway-email" type="email" autoComplete="email" maxLength="320" required />
+            <label htmlFor="giveaway-area">Property area</label>
+            <select id="giveaway-area" name="giveaway-area" defaultValue={getRequestedPropertyArea()} required><PropertyAreaOptions /></select>
+            <label htmlFor="giveaway-model">Model of interest</label>
+            <select id="giveaway-model" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
+              {vehicles.map((item) => <option key={item.slug} value={item.name}>{item.name}</option>)}
+            </select>
+            <label className="consent"><input type="checkbox" name="giveaway-consent" required /><span>I agree to be contacted about this giveaway entry.</span></label>
+            <button type="submit" className="submit-button" disabled={status === 'submitting'}>{status === 'submitting' ? 'Sending…' : 'Submit giveaway entry'} <ArrowUpRight size={17} /></button>
+            <p className="privacy-note">Your details are securely saved for this inquiry.</p>
+          </form>
+        )}
       </div>
     </section>
   );
@@ -544,7 +620,7 @@ function ModelPage({ vehicle }) {
           <p className="eyebrow">{vehicle.category} <span className="status-dot" /> {vehicle.status}</p>
           <h1>{vehicle.name}</h1>
           <p className="model-tagline">{vehicle.note}</p>
-          <a className="light-button" href={inquiryMailto(vehicle, 'giveaway')}>Inquire about {vehicle.name} <ArrowUpRight size={16} /></a>
+          <a className="light-button" href="#giveaway">Enter the giveaway <ArrowUpRight size={16} /></a>
         </div>
         <div className="hero-caption"><span>{String(index + 1).padStart(2, '0')} / 07</span><span>{vehicle.price}</span></div>
       </section>
@@ -638,11 +714,13 @@ function ContactForm() {
         type: 'contact',
         name: formData.get('contact-name'),
         email: formData.get('contact-email'),
+        propertyArea: formData.get('contact-area'),
         message: formData.get('contact-message'),
         consented: formData.get('contact-consent') === 'on',
       });
       setStatus('success');
-    } catch {
+    } catch (error) {
+      console.error('Unable to save contact submission to Supabase.', error);
       setStatus('error');
     }
   }
@@ -655,9 +733,11 @@ function ContactForm() {
     <form className="contact-form" onSubmit={submitContact}>
       {status === 'error' && <p className="form-error" role="alert">We couldn’t send your message. Try again or email us at <a href={`mailto:${contactEmail}`}>{contactEmail}</a>.</p>}
       <label htmlFor="contact-name">Full name</label>
-      <input id="contact-name" name="contact-name" autoComplete="name" required />
+      <input id="contact-name" name="contact-name" autoComplete="name" maxLength="120" required />
       <label htmlFor="contact-email">Email address</label>
-      <input id="contact-email" name="contact-email" type="email" autoComplete="email" required />
+      <input id="contact-email" name="contact-email" type="email" autoComplete="email" maxLength="320" required />
+      <label htmlFor="contact-area">Property area</label>
+      <select id="contact-area" name="contact-area" defaultValue={getRequestedPropertyArea()} required><PropertyAreaOptions /></select>
       <label htmlFor="contact-message">Message</label>
       <textarea id="contact-message" name="contact-message" rows="4" maxLength="5000" required />
       <label className="consent"><input type="checkbox" name="contact-consent" required /><span>I agree to be contacted about this message.</span></label>
@@ -712,6 +792,7 @@ function AdminInquiryCard({ inquiry, onSaved }) {
       <div className="admin-inquiry-meta"><span>{inquiry.type}</span><time>{new Date(inquiry.created_at).toLocaleString()}</time></div>
       <h3>{inquiry.name || 'Chatbot inquiry'} · {inquiry.email}</h3>
       {inquiry.vehicle_model && <p className="admin-model">Interested in {inquiry.vehicle_model}</p>}
+      {inquiry.property_area && <p className="admin-model">Property area: {inquiry.property_area}</p>}
       <p className="admin-message">{inquiry.message}</p>
       <form onSubmit={approveReply}>
         <label htmlFor={`reply-${inquiry.id}`}>Response {kind === 'ai' && <span className="draft-label">AI draft · review before approval</span>}</label>
@@ -918,6 +999,11 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     window.localStorage.setItem('site-theme', theme);
   }, [theme]);
+
+  useEffect(() => {
+    const targetId = window.location.hash.slice(1);
+    if (targetId) document.getElementById(targetId)?.scrollIntoView();
+  }, [location]);
 
   useEffect(() => {
     const referralCode = captureReferralCode();

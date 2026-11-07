@@ -80,9 +80,12 @@ export async function recordReferralConversion(code) {
   if (error) throw error;
 }
 
-export async function saveSubmission({ type, name, email, vehicleModel, message, consented, referralOptIn }) {
+export async function saveSubmission({ type, name, email, vehicleModel, propertyArea, message, consented, referralOptIn }) {
   if (!supabase) {
     throw new Error('Submission service is not configured.');
+  }
+  if (!['Cyprus', 'United States', 'United Kingdom'].includes(propertyArea)) {
+    throw new Error('A supported property area is required.');
   }
 
   const referralCode = referralOptIn ? captureReferralCode() : null;
@@ -91,6 +94,7 @@ export async function saveSubmission({ type, name, email, vehicleModel, message,
     name: name.trim(),
     email: email.trim(),
     vehicle_model: vehicleModel || null,
+    property_area: propertyArea,
     message: message.trim(),
     consented,
     referral_code: referralCode,
